@@ -5,6 +5,10 @@
 "Resolves X issue by doing Y"
 -->
 
+## Related issue (optional)
+
+<!-- Add an issue URL or reference, such as #123. -->
+
 ## Changes
 
 <!-- Explain what changes and why. -->
