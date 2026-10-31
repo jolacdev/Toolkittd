@@ -1,4 +1,4 @@
-import { queryOptions, UseQueryOptions } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 
 import { api } from '@content/lib/axios';
 import { ProfileGamesPageScrapeResponse } from '@content/shared/types/api';
@@ -20,28 +20,6 @@ const createFetchProfileGamesPageUrl = (
   }
 
   return `/u/${username}/games/added/type:${activeStatuses.join(',')}/`;
-};
-
-/**
- * Fetches a user's profile games page and returns the parsed HTML document.
- */
-const fetchProfileGamesPage = async (
-  username: string,
-  pageNumber: number,
-  selectedStatuses: StatusFiltersState,
-): Promise<Document> => {
-  try {
-    const url = createFetchProfileGamesPageUrl(username, selectedStatuses);
-    const result = await api.get<string>(url, {
-      params: { page: pageNumber },
-    });
-
-    const parser = new DOMParser();
-    return parser.parseFromString(result, 'text/html');
-  } catch (error) {
-    console.error(`Failed to fetch page ${pageNumber} for user ${username}`);
-    throw error;
-  }
 };
 
 const getTotalGamesCount = (doc: Document): number => {
@@ -92,24 +70,35 @@ type ProfileGamesPageParams = {
   username: string;
 };
 
-export const createProfileGamesPageQueryOptions = <
-  TError = Error,
-  TData = ProfileGamesPageScrapeResponse,
->(
+/** Fetches and parses each collection page once, caching plain game data. */
+const fetchProfileGamesPage = async (
   { pageNumber, selectedStatuses, username }: ProfileGamesPageParams,
-  options?: Omit<
-    UseQueryOptions<Document, TError, TData>,
-    'queryFn' | 'queryKey' | 'select'
-  >,
+  signal: AbortSignal,
+): Promise<ProfileGamesPageScrapeResponse> => {
+  try {
+    const url = createFetchProfileGamesPageUrl(username, selectedStatuses);
+    const result = await api.get<string>(url, {
+      params: { page: pageNumber },
+      signal,
+    });
+
+    const parser = new DOMParser();
+    return parseProfileGamesPage(parser.parseFromString(result, 'text/html'));
+  } catch (error) {
+    console.error(`Failed to fetch page ${pageNumber} for user ${username}`);
+    throw error;
+  }
+};
+
+export const createProfileGamesPageQueryOptions = (
+  params: ProfileGamesPageParams,
 ) =>
   queryOptions({
-    ...options,
+    staleTime: 60_000,
     queryKey: queryKeys.profileGamesPage(
-      username,
-      pageNumber,
-      selectedStatuses,
+      params.username,
+      params.pageNumber,
+      params.selectedStatuses,
     ),
-    queryFn: () =>
-      fetchProfileGamesPage(username, pageNumber, selectedStatuses),
-    select: (data) => parseProfileGamesPage(data),
+    queryFn: ({ signal }) => fetchProfileGamesPage(params, signal),
   });

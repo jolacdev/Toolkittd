@@ -21,9 +21,9 @@ The content script enhances Backloggd pages. Its current feature exports a signe
 
 1. **Authentication and injection** — Reads the username from Backloggd's navigation bar and adds the export action only on `/settings/data/`.
 2. **Status selection** — The dialog starts from popup-saved defaults and requires at least one status. Its changes affect only the current export.
-3. **Collection pages** — `useProfileGames` parses the first HTML page to determine pagination, then fetches all pages in parallel and deduplicates games.
-4. **Game logs** — `useGameDetails` requests `/log/edit/:gameId` sequentially, with a 100 ms delay to reduce rate limiting. Individual failures are skipped.
-5. **Downloads** — `useExport` reports `idle → analyzing → exporting → complete` or `error`. On success, the dialog downloads **CSV** (first playthrough per game) and **JSON** (full details), with a short delay between files. Empty results or a failed collection page produce an error instead.
+3. **Collection pages** — `exportCollection` parses the first HTML page to determine pagination, then fetches the remaining pages with at most four concurrent requests. Each page is parsed once into cached plain data, then games are deduplicated in page order.
+4. **Game logs** — The same job requests `/log/edit/:gameId` sequentially, with a 100 ms delay to reduce rate limiting. Individual failures are skipped after retries. It uses React Query's imperative cache without mounting per-game observers, and owns the growing result array outside React state.
+5. **Downloads** — `useExport` publishes progress counters through `idle → analyzing → exporting → complete` or `error`, and publishes game details only at completion. On success, the dialog downloads **CSV** (first playthrough per game) and **JSON** (full details), with a short delay between files. Empty results or a failed collection page produce an error instead. Unmounting the dialog cancels its requests and stops the queue.
 
 > **Note:** Backloggd's internal endpoints are undocumented and may change. Response types live in [`shared/types/api.ts`](./shared/types/api.ts).
 
@@ -65,18 +65,18 @@ Backloggd uses [Turbo](https://turbo.hotwired.dev/) navigation, so the script re
 
 ## Technical Stack
 
-| Technology                | Purpose                                             | Location                                       |
-| ------------------------- | --------------------------------------------------- | ---------------------------------------------- |
-| **WXT**                   | Content-script registration and Shadow DOM mounting | `index.tsx`                                    |
-| **React**                 | Injected component tree and providers               | `App.tsx`, `features/`                         |
-| **React Query**           | Caching and staged game requests                    | `lib/react-query.ts`, `features/export/hooks/` |
-| **Axios**                 | Backloggd HTTP client and interceptors              | `lib/axios.ts`                                 |
-| **PapaParse**             | CSV serialization                                   | `lib/papaparse.ts`                             |
-| **react-hot-toast**       | Export notifications                                | `shared/providers/`                            |
-| **Tailwind CSS**          | Utility styles and theme tokens                     | `style.css`                                    |
-| **DaisyUI**               | UI styles scoped to the shadow host                 | `style.css`                                    |
-| **react-i18next**         | UI copy from shared locale resources                | `features/`, `@globalShared/i18n`              |
-| **clsx + tailwind-merge** | Conditional and conflict-free class names           | `@globalShared/utils/cn`                       |
+| Technology                | Purpose                                             | Location                                     |
+| ------------------------- | --------------------------------------------------- | -------------------------------------------- |
+| **WXT**                   | Content-script registration and Shadow DOM mounting | `index.tsx`                                  |
+| **React**                 | Injected component tree and providers               | `App.tsx`, `features/`                       |
+| **React Query**           | Imperative request caching and retries              | `lib/react-query.ts`, `features/export/api/` |
+| **Axios**                 | Backloggd HTTP client and interceptors              | `lib/axios.ts`                               |
+| **PapaParse**             | CSV serialization                                   | `lib/papaparse.ts`                           |
+| **react-hot-toast**       | Export notifications                                | `shared/providers/`                          |
+| **Tailwind CSS**          | Utility styles and theme tokens                     | `style.css`                                  |
+| **DaisyUI**               | UI styles scoped to the shadow host                 | `style.css`                                  |
+| **react-i18next**         | UI copy from shared locale resources                | `features/`, `@globalShared/i18n`            |
+| **clsx + tailwind-merge** | Conditional and conflict-free class names           | `@globalShared/utils/cn`                     |
 
 ## Development Standards
 

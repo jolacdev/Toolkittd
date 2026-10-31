@@ -1,85 +1,65 @@
 /* eslint-disable perfectionist/sort-objects */
+import { useQueryClient } from '@tanstack/react-query';
+
 import { StatusFiltersState } from '@globalShared/storage';
 
-import { ExportPhase, ExportProgress } from '../types';
-import useGameDetails from './useGameDetails';
-import useProfileGames from './useProfileGames';
+import { exportCollection } from '../api/export-collection';
+import { ExportProgress, GameDetails } from '../types';
 
 type UseExportProps = {
   username: string;
 };
 
-// Resolve the export lifecycle phase by priority (highest first).
-const resolvePhase = ({
-  areDetailsComplete,
-  areProfilePagesReady,
-  hasProfileError,
-  isExportEnabled,
-  isProfileEmpty,
-}: {
-  areDetailsComplete: boolean;
-  areProfilePagesReady: boolean;
-  hasProfileError: boolean;
-  isExportEnabled: boolean;
-  isProfileEmpty: boolean;
-}): ExportPhase => {
-  if (!isExportEnabled) return 'idle';
-  if (hasProfileError) return 'error';
-  // No games to export also resolves as complete; the dialog surfaces the empty result.
-  if (areDetailsComplete || isProfileEmpty) return 'complete';
-  if (areProfilePagesReady) return 'exporting'; // Pages resolved -> fetching details.
-  return 'analyzing';
-};
-
+/** Keeps only progress in React while one export job owns the growing results. */
 const useExport = ({ username }: UseExportProps) => {
-  const [selectedStatuses, setSelectedStatuses] =
-    useState<StatusFiltersState>(); // An unset selection means the export has not started.
-  const isExportEnabled = !!selectedStatuses;
-
-  // Stages 1 and 2: resolve the full list of games to export.
-  const profilePagesData = useProfileGames({
-    username,
-    selectedStatuses,
-    enabled: isExportEnabled && !!selectedStatuses,
+  const queryClient = useQueryClient();
+  const activeExport = useRef<AbortController | undefined>(undefined);
+  const [gameDetails, setGameDetails] = useState<GameDetails[]>([]);
+  const [progress, setProgress] = useState<ExportProgress>({
+    phase: 'idle',
+    current: 0,
+    total: 0,
   });
 
-  // Stage 3: fetch each game's details sequentially, gated on the game list.
-  const gameDetailsData = useGameDetails({
-    profileGames: profilePagesData.games,
-    enabled: profilePagesData.isReady,
-  });
+  useEffect(() => () => activeExport.current?.abort(), []);
 
-  // Single source of truth for the export lifecycle.
-  const phase = resolvePhase({
-    isExportEnabled,
-    hasProfileError: profilePagesData.isError,
-    areDetailsComplete: gameDetailsData.isComplete,
-    areProfilePagesReady: profilePagesData.isReady,
-    isProfileEmpty: profilePagesData.isEmpty,
-  });
-
-  const progress: ExportProgress = {
-    phase,
-    current: gameDetailsData.settledCount,
-    total: gameDetailsData.total,
-  };
-
-  const fetchData = (selectedFilters: StatusFiltersState) => {
-    // An export needs both a user and at least one selected status.
-    if (!username || !Object.values(selectedFilters).some(Boolean)) return;
-
-    gameDetailsData.reset(); // Reset sequential index at the start of a new fetch.
-
-    if (!isExportEnabled) {
-      setSelectedStatuses(selectedFilters);
+  const fetchData = (selectedStatuses: StatusFiltersState) => {
+    if (
+      activeExport.current ||
+      !username ||
+      !Object.values(selectedStatuses).some(Boolean)
+    ) {
+      return;
     }
+
+    const controller = new AbortController();
+    activeExport.current = controller;
+    setProgress({ phase: 'analyzing', current: 0, total: 0 });
+
+    exportCollection({
+      queryClient,
+      selectedStatuses: { ...selectedStatuses },
+      signal: controller.signal,
+      username,
+      onProgress: setProgress,
+    })
+      .then((details) => {
+        if (controller.signal.aborted) return;
+        setGameDetails(details);
+        setProgress((previous) => ({ ...previous, phase: 'complete' }));
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        controller.abort(); // Stop remaining collection-page workers on failure.
+        setProgress((previous) => ({ ...previous, phase: 'error' }));
+      });
   };
 
   return {
     fetchData,
-    gameDetails: gameDetailsData.details,
-    isComplete: phase === 'complete',
-    isError: phase === 'error',
+    gameDetails,
+    isComplete: progress.phase === 'complete',
+    isError: progress.phase === 'error',
     progress,
   };
 };

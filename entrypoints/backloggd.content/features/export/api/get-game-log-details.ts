@@ -1,12 +1,8 @@
-import { queryOptions, UseQueryOptions } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 
 import { api } from '@content/lib/axios';
-import {
-  GameLogDetailsResponse,
-  ProfileGameScrapeResponse,
-} from '@content/shared/types/api';
+import { GameLogDetailsResponse } from '@content/shared/types/api';
 
-import { GameDetails } from '../types';
 import { queryKeys } from './keys';
 
 /**
@@ -14,35 +10,15 @@ import { queryKeys } from './keys';
  */
 export const fetchGameLogDetails = async (
   gameId: string,
+  signal?: AbortSignal,
 ): Promise<GameLogDetailsResponse> =>
-  await api.get<GameLogDetailsResponse>(`/log/edit/${gameId}`);
-
-const parseToGameDetails = (
-  profileGame: ProfileGameScrapeResponse,
-  gameLogDetails: GameLogDetailsResponse,
-): GameDetails => ({
-  ...profileGame,
-  ...gameLogDetails,
-});
+  await api.get<GameLogDetailsResponse>(`/log/edit/${gameId}`, { signal });
 
 /**
- * Creates query options that return the combined {@link ProfileGameScrapeResponse} and {@link GameLogDetailsResponse}
- * as {@link GameDetails}.
+ * Caches raw game logs without mounting a per-game observer or selector.
  */
-export const createGameDetailsQueryOptions = <
-  TError = Error,
-  TData = GameDetails,
->(
-  profileGame: ProfileGameScrapeResponse,
-  options?: Omit<
-    UseQueryOptions<GameLogDetailsResponse, TError, TData>,
-    'queryFn' | 'queryKey' | 'select'
-  >,
-) =>
+export const createGameLogDetailsQueryOptions = (gameId: string) =>
   queryOptions({
-    ...options,
-    queryKey: queryKeys.gameLogDetails(profileGame.id),
-    queryFn: () => fetchGameLogDetails(profileGame.id),
-    select: (data: GameLogDetailsResponse): GameDetails =>
-      parseToGameDetails(profileGame, data),
+    queryKey: queryKeys.gameLogDetails(gameId),
+    queryFn: ({ signal }) => fetchGameLogDetails(gameId, signal),
   });
