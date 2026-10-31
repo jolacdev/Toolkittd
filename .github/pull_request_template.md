@@ -1,13 +1,13 @@
+## Related issue
+
+<!-- Add an issue URL or reference, such as #123. -->
+
 ## Summary
 
 <!-- Briefly describe the purpose of this pull request. -->
 <!-- Example:
 "Resolves X issue by doing Y"
 -->
-
-## Related issue (optional)
-
-<!-- Add an issue URL or reference, such as #123. -->
 
 ## Changes
 
