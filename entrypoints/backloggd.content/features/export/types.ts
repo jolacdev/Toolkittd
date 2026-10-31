@@ -10,7 +10,7 @@ import {
  * - `idle`: no export in progress.
  * - `analyzing`: resolving how many pages/games exist (profile page scraping).
  * - `exporting`: fetching per-game details (main data for creating the CSV/JSON).
- * - `complete`: every game-detail query has settled (success or error).
+ * - `complete`: every game-detail request has settled (success or error).
  * - `error`: the game list could not be fetched, so there is nothing to export.
  * Note: Only profile-page fetches can reach 'error'; individual game-detail failures are tolerated.
  */
@@ -25,6 +25,7 @@ export type ExportProgress = {
   phase: ExportPhase;
   current: number;
   total: number;
+  estimatedSecondsRemaining?: number;
 };
 
 /**

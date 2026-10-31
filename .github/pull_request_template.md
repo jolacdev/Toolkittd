@@ -1,3 +1,7 @@
+## Related issue
+
+<!-- Add an issue URL or reference, such as #123. -->
+
 ## Summary
 
 <!-- Briefly describe the purpose of this pull request. -->
