@@ -2,6 +2,13 @@
 
 Release Please maintains new entries when its release PR is merged.
 
+## [1.1.1](https://github.com/jolacdev/Toolkittd/compare/v1.1.0...v1.1.1) (2026-10-31)
+
+
+### Fixes
+
+* **export:** [12] prevent severe slowdowns with large collections ([#13](https://github.com/jolacdev/Toolkittd/issues/13)) ([33b8589](https://github.com/jolacdev/Toolkittd/commit/33b85892960e5fd5396016a0d967731459d3fcdf))
+
 ## [1.1.0](https://github.com/jolacdev/toolkittd/compare/v1.0.2...v1.1.0) (2026-10-08)
 
 

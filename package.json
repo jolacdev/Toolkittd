@@ -2,7 +2,7 @@
   "name": "toolkittd",
   "description": "Toolkittd is a browser extension that enhances Backloggd with extra tools, including game collection export to CSV and JSON.",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "packageManager": "pnpm@12.3.4",
   "engines": {
