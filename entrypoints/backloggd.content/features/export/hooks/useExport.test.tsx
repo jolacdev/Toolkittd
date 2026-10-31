@@ -114,6 +114,29 @@ describe('useExport', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('shows an estimate after five games and removes it on completion', async () => {
+    get.mockImplementation(async (url) =>
+      url.startsWith('/log/')
+        ? gameLog
+        : pageHtml(['1', '2', '3', '4', '5', '6']),
+    );
+    const { result } = renderExport();
+    await act(async () => {
+      result.current.fetchData(selectedStatuses);
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(result.current.progress.current).toBe(4);
+    expect(result.current.progress.estimatedSecondsRemaining).toBeUndefined();
+
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(result.current.progress.current).toBe(5);
+    expect(result.current.progress.estimatedSecondsRemaining).toBe(1);
+
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(result.current.isComplete).toBe(true);
+    expect(result.current.progress.estimatedSecondsRemaining).toBeUndefined();
+  });
+
   it('bounds page concurrency and preserves page order when responses arrive out of order', async () => {
     const resolvePages = new Map<number, (html: string) => void>();
     get.mockImplementation(async (url, config) => {

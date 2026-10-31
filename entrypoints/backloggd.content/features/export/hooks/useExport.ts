@@ -5,10 +5,16 @@ import { StatusFiltersState } from '@globalShared/storage';
 
 import { exportCollection } from '../api/export-collection';
 import { ExportProgress, GameDetails } from '../types';
+import { createRemainingTimeEstimator } from '../utils/estimate-remaining-time';
 
 type UseExportProps = {
   username: string;
 };
+
+// Wait for a few games to finish before showing an estimate.
+const MIN_COMPLETED_GAMES = 5;
+// Average recent game timings so the estimate adapts to changing speeds.
+const RECENT_GAMES = 10;
 
 /** Keeps only progress in React while one export job owns the growing results. */
 const useExport = ({ username }: UseExportProps) => {
@@ -33,6 +39,10 @@ const useExport = ({ username }: UseExportProps) => {
     }
 
     const controller = new AbortController();
+    const estimateRemainingTime = createRemainingTimeEstimator({
+      minimumCompletedItems: MIN_COMPLETED_GAMES,
+      recentIntervalCount: RECENT_GAMES,
+    });
     activeExport.current = controller;
     setProgress({ phase: 'analyzing', current: 0, total: 0 });
 
@@ -41,7 +51,25 @@ const useExport = ({ username }: UseExportProps) => {
       selectedStatuses: { ...selectedStatuses },
       signal: controller.signal,
       username,
-      onProgress: setProgress,
+      onProgress: (nextProgress) => {
+        const estimatedSecondsRemaining = estimateRemainingTime(
+          nextProgress.current,
+          nextProgress.total,
+          performance.now(),
+        );
+        setProgress(
+          estimatedSecondsRemaining === undefined
+            ? nextProgress
+            : {
+                ...nextProgress,
+                // Show at least one second while an estimate is available.
+                estimatedSecondsRemaining: Math.max(
+                  1,
+                  estimatedSecondsRemaining,
+                ),
+              },
+        );
+      },
     })
       .then((details) => {
         if (controller.signal.aborted) return;

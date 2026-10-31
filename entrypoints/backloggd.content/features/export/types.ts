@@ -25,6 +25,7 @@ export type ExportProgress = {
   phase: ExportPhase;
   current: number;
   total: number;
+  estimatedSecondsRemaining?: number;
 };
 
 /**

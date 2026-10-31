@@ -15,7 +15,8 @@
         "submit": "Export",
         "progress": {
           "analyzingCollection": "Preparing your game collection...",
-          "exportingGames": "Exporting... {{current}} / {{total}}"
+          "exportingGames": "Exporting... {{current}} / {{total}}",
+          "remainingTime": "About {{hours}}h {{minutes}}m {{seconds}}s remaining"
         }
       },
       "toast": {
